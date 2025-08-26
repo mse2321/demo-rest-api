@@ -1,8 +1,9 @@
 // User model for authentication using SQLite database
 import db from '../database/db.js';
+import bcrypt from 'bcryptjs';
 
 // Create a new user
-function createUser(userData) {
+async function createUser(userData) {
   const { username, email, password } = userData;
   
   try {
@@ -15,13 +16,17 @@ function createUser(userData) {
       throw new Error('User already exists');
     }
     
-    // Insert new user
+    // Hash the password before storing
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    
+    // Insert new user with hashed password
     const stmt = db.prepare(`
       INSERT INTO users (username, email, password) 
       VALUES (?, ?, ?)
     `);
     
-    const result = stmt.run(username, email, password);
+    const result = stmt.run(username, email, hashedPassword);
     
     // Get the created user (without password)
     const newUser = db.prepare(
@@ -55,7 +60,7 @@ function getAllUsers() {
 }
 
 // Update user
-function updateUser(id, updateData) {
+async function updateUser(id, updateData) {
   try {
     // Check if user exists
     const existingUser = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -76,8 +81,11 @@ function updateUser(id, updateData) {
       updateValues.push(updateData.email);
     }
     if (updateData.password !== undefined) {
+      // Hash the password before updating
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(updateData.password, saltRounds);
       updateFields.push('password = ?');
-      updateValues.push(updateData.password);
+      updateValues.push(hashedPassword);
     }
     
     if (updateFields.length === 0) {
@@ -119,4 +127,29 @@ function deleteUser(id) {
   }
 }
 
-export { createUser, findUserByEmail, findUserByUsername, findUserById, getAllUsers, updateUser, deleteUser };
+// Verify user credentials
+async function verifyCredentials(email, password) {
+    // Find user by email
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    
+    if (!user) {
+      return { isValid: false, user: null, message: 'User not found' };
+    }
+    
+    // Compare password with hashed password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      return { isValid: false, user: null, message: 'Invalid password' };
+    }
+    
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+    return { 
+      isValid: true, 
+      user: userWithoutPassword, 
+      message: 'Credentials verified successfully' 
+    };
+}
+
+export { createUser, findUserByEmail, findUserByUsername, findUserById, getAllUsers, updateUser, deleteUser, verifyCredentials };

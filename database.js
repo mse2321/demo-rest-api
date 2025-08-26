@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database file path
-const dbPath = path.join(__dirname, '..', 'data', 'app.db');
+const dbPath = path.join(__dirname, 'database.sqlite');
 
 // Create database instance
 const db = new Database(dbPath);
@@ -24,7 +24,22 @@ function initializeDatabase() {
     )
   `;
   
+  // Create events table
+  const createEventsTable = `
+    CREATE TABLE IF NOT EXISTS events (
+      id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      date DATETIME NOT NULL,
+      location TEXT NOT NULL,
+      organizer_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (organizer_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `;
+  
   db.exec(createUsersTable);
+  db.exec(createEventsTable);
   console.log('Database initialized successfully');
 }
 

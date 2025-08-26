@@ -4,15 +4,17 @@ import {
   findUserById, 
   getAllUsers, 
   updateUser, 
-  deleteUser 
+  deleteUser,
+  verifyCredentials
 } from '../models/user.js';
+import { generateToken } from '../utils/auth.js';
 
 // User registration
-export function signup(req, res) {
+export async function signup(req, res) {
   try {
     const { username, email, password } = req.body;
     
-    // Basic validation
+    // Basic validation - check for empty strings and whitespace-only strings
     if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -20,8 +22,16 @@ export function signup(req, res) {
       });
     }
     
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Check for empty strings or whitespace-only strings
+    if (username.trim() === '' || email.trim() === '' || password.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, email, and password cannot be empty or contain only whitespace'
+      });
+    }
+    
+    // Email format validation - more comprehensive regex
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({
         success: false,
@@ -29,7 +39,16 @@ export function signup(req, res) {
       });
     }
     
-    // Password length validation
+    // Check if email already exists in database
+    const existingUser = findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email address is already registered'
+      });
+    }
+    
+    // Password validation
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
@@ -38,12 +57,16 @@ export function signup(req, res) {
     }
     
     // Create user
-    const newUser = createUser({ username, email, password });
+    const newUser = await createUser({ username, email, password });
+    
+    // Generate JWT token for the new user
+    const token = generateToken(newUser);
     
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: newUser
+      data: newUser,
+      token: token
     });
     
   } catch (error) {
@@ -55,7 +78,7 @@ export function signup(req, res) {
 };
 
 // User login
-export function login(req, res) {
+export async function login(req, res) {
   try {
     const { email, password } = req.body;
     
@@ -67,31 +90,24 @@ export function login(req, res) {
       });
     }
     
-    // Find user by email
-    const user = findUserByEmail(email);
+    // Verify credentials using the verifyCredentials function
+    const result = await verifyCredentials(email, password);
     
-    if (!user) {
+    if (!result.isValid) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: result.message
       });
     }
     
-    // Check password (in a real app, this would compare hashed passwords)
-    if (user.password !== password) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-    
-    // Return user data without password
-    const { password: _, ...userWithoutPassword } = user;
+    // Generate JWT token for the authenticated user
+    const token = generateToken(result.user);
     
     res.status(200).json({
       success: true,
       message: 'Login successful',
-      data: userWithoutPassword
+      data: result.user,
+      token: token
     });
     
   } catch (error) {
@@ -150,15 +166,12 @@ export function getUserById(req, res) {
 };
 
 // Update user
-export function updateUserController(req, res) {
+export async function updateUserController(req, res) {
   try {
     const { id } = req.params;
     const updateData = req.body;
     
-    // Remove password from update data for security
-    delete updateData.password;
-    
-    const updatedUser = updateUser(id, updateData);
+    const updatedUser = await updateUser(id, updateData);
     
     res.status(200).json({
       success: true,

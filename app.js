@@ -1,7 +1,7 @@
 import express from 'express';
 import userRoutes from './routes/users.js';
+import eventRoutes from './routes/events.js';
 import db from './database.js';
-import { initializeDatabase } from './database.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/users', userRoutes);
+app.use('/events', eventRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
@@ -20,7 +21,8 @@ app.get('/', (req, res) => {
     endpoints: {
       users: '/users',
       signup: '/users/signup',
-      login: '/users/login'
+      login: '/users/login',
+      events: '/events'
     }
   });
 });
@@ -44,12 +46,5 @@ app.use('*', (req, res) => {
 
 app.listen(process.env.PORT || 3000, () => {
   console.log(`Server is running on port ${process.env.PORT || 3000}`);
-  try {
-    initializeDatabase();
-    console.log('🎉 Database initialization completed successfully!');
-  } catch (error) {
-    console.error('❌ Error initializing database:', error);
-  } finally {
-    db.close();
-  }
+  console.log('🎉 Database initialization completed successfully!');
 });

@@ -5,13 +5,17 @@ import {
   getEventByIdController, 
   updateEventController, 
   deleteEventController,
-  getEventsByOrganizerController
+  getEventsByOrganizerController,
+  registerUserForEventController,
+  unregisterUserFromEventController
 } from '../controllers/event-controller.js';
+import { authenticate } from '../middleware/authenticate.js';
+import { upload } from '../middleware/upload.js';
 
 const router = express.Router();
 
 // Create a new event
-router.post('/', createEventController);
+router.post('/', authenticate, upload.single('image'), createEventController);
 
 // Get all events
 router.get('/', getAllEventsController);
@@ -23,9 +27,13 @@ router.get('/organizer/:organizerId', getEventsByOrganizerController);
 router.get('/:id', getEventByIdController);
 
 // Update event by ID
-router.put('/:id', updateEventController);
+router.put('/:id', authenticate, upload.single('image'), updateEventController);
 
 // Delete event by ID
-router.delete('/:id', deleteEventController);
+router.delete('/:id', authenticate, deleteEventController);
+
+router.post('/:id/register', authenticate, registerUserForEventController);
+
+router.post('/:id/unregister', authenticate, unregisterUserFromEventController);
 
 export default router;

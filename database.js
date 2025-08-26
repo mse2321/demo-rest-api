@@ -21,6 +21,8 @@ function initializeDatabase() {
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      user_id INTEGER UNIQUE NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `;
   
@@ -31,15 +33,28 @@ function initializeDatabase() {
       title TEXT NOT NULL,
       description TEXT NOT NULL,
       date DATETIME NOT NULL,
+      image TEXT,
       location TEXT NOT NULL,
       organizer_id INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (organizer_id) REFERENCES users (id) ON DELETE CASCADE
     )
   `;
+  const createRegistrationsTable = `
+    CREATE TABLE IF NOT EXISTS registrations (
+      id INTEGER PRIMARY KEY,
+      eventId INTEGER NOT NULL,
+      userId INTEGER NOT NULL,
+      registeredAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE,
+      FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE,
+      UNIQUE(eventId, userId)
+    )
+  `;
   
   db.exec(createUsersTable);
   db.exec(createEventsTable);
+  db.exec(createRegistrationsTable);
   console.log('Database initialized successfully');
 }
 

@@ -3,12 +3,12 @@ import db from '../database.js';
 
 // Create a new event
 async function createEvent(eventData) {
-  const { title, description, date, location, organizer_id } = eventData;
+  const { title, description, date, location, organizer_id, user_id, image } = eventData;
   
   try {
     // Basic validation
-    if (!title || !description || !date || !location || !organizer_id) {
-      throw new Error('All fields are required: title, description, date, location, organizer_id');
+    if (!title || !description || !date || !location || !organizer_id || !user_id) {
+      throw new Error('All fields are required: title, description, date, location, organizer_id, user_id');
     }
     
     // Validate date format
@@ -22,14 +22,20 @@ async function createEvent(eventData) {
     if (!organizer) {
       throw new Error('Organizer not found');
     }
+
+    // Check if user exists
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(user_id);
+    if (!user) {
+      throw new Error('User not found');
+    }
     
-    // Insert new event
+    // Insert new event with user_id and image
     const stmt = db.prepare(`
-      INSERT INTO events (title, description, date, location, organizer_id) 
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO events (title, description, date, location, organizer_id, user_id, image) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    const result = stmt.run(title, description, date, location, organizer_id);
+    const result = stmt.run(title, description, date, location, organizer_id, user_id, image);
     
     // Get the created event
     const newEvent = db.prepare(
@@ -105,6 +111,10 @@ async function updateEvent(id, updateData) {
       updateFields.push('organizer_id = ?');
       updateValues.push(updateData.organizer_id);
     }
+    if (updateData.image !== undefined) {
+      updateFields.push('image = ?');
+      updateValues.push(updateData.image);
+    }
     
     if (updateFields.length === 0) {
       throw new Error('No valid fields to update');
@@ -161,4 +171,52 @@ export {
   updateEvent, 
   deleteEvent, 
   getEventsByOrganizer 
+};
+
+function registerUserForEvent(eventId, userId) {
+  try {
+    // Check if event exists
+    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    // Check if user exists
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if registration already exists
+    const existingRegistration = db.prepare('SELECT * FROM registrations WHERE eventId = ? AND userId = ?').get(eventId, userId);
+    if (existingRegistration) {
+      throw new Error('User already registered for this event');
+    }
+
+    // Insert registration
+    const stmt = db.prepare('INSERT INTO registrations (eventId, userId) VALUES (?, ?)');
+    stmt.run(eventId, userId);
+
+    return { message: 'User registered for event successfully' };
+  } catch (error) {
+    throw error;
+  }
+};
+
+function unregisterUserFromEvent(eventId, userId) {
+  try {
+    // Check if registration exists
+    const existingRegistration = db.prepare('SELECT * FROM registrations WHERE eventId = ? AND userId = ?').get(eventId, userId);
+    if (!existingRegistration) {
+      throw new Error('Registration not found');
+    }
+
+    // Delete registration
+    const stmt = db.prepare('DELETE FROM registrations WHERE eventId = ? AND userId = ?');
+    stmt.run(eventId, userId);
+
+    return { message: 'User unregistered from event successfully' };
+  } catch (error) {
+    throw error;
+  }
 };
